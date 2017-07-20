@@ -1,0 +1,10 @@
+[package]
+name = "cache_warmer"
+version = "0.1.0"
+authors = ["Chris Aumann <me@chr4.org>"]
+
+[dependencies]
+futures = "0.1"
+hyper = "0.11"
+hyper-tls = "0.1"
+tokio-core = "0.1"
