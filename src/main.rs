@@ -3,6 +3,7 @@ extern crate hyper;
 extern crate hyper_tls;
 extern crate tokio_core;
 
+use std::io;
 use futures::Future;
 use hyper::Client;
 use hyper_tls::HttpsConnector;
@@ -18,11 +19,29 @@ fn main() {
         .connector(HttpsConnector::new(threads, &handle).unwrap())
         .build(&handle);
 
-    let uri = "https://chr4.org".parse().unwrap();
+    let lines = lines_from_file("urls.txt").unwrap();
 
-    let work = client.get(uri).map(|res| {
-        println!("Response: {}", res.status());
-    });
+    for l in lines {
+        let line = l.unwrap();
+        let uri = format!("https://chr4.org/{}", line).parse().unwrap();
 
-    core.run(work).unwrap();
+        let work = client.get(uri).map(|res| {
+            println!("{}: {}", line, res.status());
+        });
+
+        core.run(work).unwrap();
+    }
+}
+
+
+use std::io::prelude::*;
+use std::path::Path;
+use std::fs::File;
+
+fn lines_from_file<P>(filename: P) -> Result<io::Lines<io::BufReader<File>>, io::Error>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
 }
