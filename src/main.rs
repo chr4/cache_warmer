@@ -7,6 +7,7 @@ extern crate tokio_core;
 
 use std::io;
 use futures::Future;
+use futures::stream::Stream;
 use hyper::{Client, Request, Method};
 use hyper::header::{UserAgent, SetCookie};
 use hyper_tls::HttpsConnector;
@@ -41,13 +42,16 @@ fn main() {
             vec![String::from("cacheupdate=true")],
         ));
 
-        let work = client.request(req).map(|res| {
+        let work = client.request(req).and_then(|res| {
             println!(
                 "{}: {} {:?}",
                 line,
                 res.status(),
                 res.headers().get::<XCacheStatus>()
             );
+
+            // We need to read out the full body, so the connection can be closed.
+            res.body().for_each(|_| Ok(()))
         });
 
         core.run(work).unwrap();
