@@ -17,6 +17,7 @@ fn main() {
     let handle = core.handle();
 
     let client = Client::configure()
+        .keep_alive(true)
         .connector(HttpsConnector::new(threads, &handle).unwrap())
         .build(&handle);
 
