@@ -18,6 +18,8 @@ header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
 fn main() {
     let threads = 4;
+    let user_agent_desktop = "Googlebot (cache warmer)";
+    let user_agent_mobile = "Googlebot Android Mobile (cache warmer)";
 
     let mut core = Core::new().unwrap();
     let handle = core.handle();
@@ -34,9 +36,7 @@ fn main() {
         let uri = format!("https://chr4.org/{}", line).parse().unwrap();
 
         let mut req: hyper::Request = Request::new(Method::Get, uri);
-        req.headers_mut().set(
-            UserAgent::new("Googlebot (cache warmer)"),
-        );
+        req.headers_mut().set(UserAgent::new(user_agent_desktop));
 
         req.headers_mut().set(SetCookie(
             vec![String::from("cacheupdate=true")],
