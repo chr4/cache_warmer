@@ -5,7 +5,8 @@ extern crate tokio_core;
 
 use std::io;
 use futures::Future;
-use hyper::Client;
+use hyper::{Client, Request, Method};
+use hyper::header::{UserAgent, SetCookie};
 use hyper_tls::HttpsConnector;
 use tokio_core::reactor::Core;
 
@@ -25,8 +26,17 @@ fn main() {
         let line = l.unwrap();
         let uri = format!("https://chr4.org/{}", line).parse().unwrap();
 
-        let work = client.get(uri).map(|res| {
-            println!("{}: {}", line, res.status());
+        let mut req: hyper::Request = Request::new(Method::Get, uri);
+        req.headers_mut().set(
+            UserAgent::new("Googlebot (cache warmer)"),
+        );
+
+        req.headers_mut().set(SetCookie(
+            vec![String::from("cacheupdate=true")],
+        ));
+
+        let work = client.request(req).map(|res| {
+            println!("{}: {} (Cache: {})", line, res.status(), res.headers());
         });
 
         core.run(work).unwrap();
