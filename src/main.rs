@@ -1,6 +1,8 @@
-extern crate futures;
+#[macro_use]
 extern crate hyper;
+
 extern crate hyper_tls;
+extern crate futures;
 extern crate tokio_core;
 
 use std::io;
@@ -9,6 +11,9 @@ use hyper::{Client, Request, Method};
 use hyper::header::{UserAgent, SetCookie};
 use hyper_tls::HttpsConnector;
 use tokio_core::reactor::Core;
+
+// Make custom X-Cache-Status header known
+header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
 fn main() {
     let threads = 4;
@@ -37,7 +42,12 @@ fn main() {
         ));
 
         let work = client.request(req).map(|res| {
-            println!("{}: {} (Cache: {})", line, res.status(), res.headers());
+            println!(
+                "{}: {} {:?}",
+                line,
+                res.status(),
+                res.headers().get::<XCacheStatus>()
+            );
         });
 
         core.run(work).unwrap();
