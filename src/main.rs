@@ -9,12 +9,13 @@ extern crate futures;
 extern crate tokio_core;
 extern crate pbr;
 
+mod cli;
+
 use std::io;
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use pbr::ProgressBar;
-use clap::{Arg, App};
 use futures::Future;
 use futures::stream::Stream;
 use hyper::{Uri, Client, Request, Method};
@@ -25,76 +26,18 @@ use tokio_core::reactor::Core;
 // Make custom X-Cache-Status header known
 header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
+
 fn main() {
-    let args = App::new("cache_warmer")
-        .version("0.1")
-        .about("Fires mass requests to warm up nginx cache")
-        .author("Chris Aumann <me@chr4.org>")
-        .arg(
-            Arg::with_name("threads")
-                .short("t")
-                .long("threads")
-                .value_name("N")
-                .help("Spawn N threads (defaults to 4)")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("base-uri")
-                .short("b")
-                .long("base-uri")
-                .value_name("Base URI")
-                .help("")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("uri-file")
-                .short("f")
-                .long("uri-file")
-                .value_name("FILE")
-                .help("File with URLs to warm up")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("user-agent")
-                .short("u")
-                .long("--user-agent")
-                .value_name("STRING")
-                .help("User-Agent to use")
-                .takes_value(true),
-        )
-        .arg(Arg::with_name("bypass").short("c").long("--bypass").help(
-            "Set cacheupdate cookie to bypass cache",
-        ))
-        .arg(Arg::with_name("verbose").short("v").long("verbose").help(
-            "Be verbose",
-        ))
-        .get_matches();
-
-    // Default to 4 threads
-    let threads = if args.is_present("threads") {
-        value_t!(args.value_of("threads"), u32).unwrap_or_else(|e| e.exit())
-    } else {
-        4
-    };
-
-    let verbose = args.is_present("verbose");
-    let bypass = args.is_present("bypass");
-    let base_uri = args.value_of("base-uri").unwrap_or("");
-    let uri_file = args.value_of("uri-file").unwrap();
-
-    let ua_string = args.value_of("user-agent").unwrap_or(
-        "Googlebot (cache warmer)",
-    );
-    let user_agent = UserAgent::new(ua_string.to_string());
+    let args = cli::get_args();
+    let user_agent = UserAgent::new(args.user_agent.to_string());
 
     let uris = Arc::new(Mutex::new(vec![]));
-    let lines = lines_from_file(uri_file).unwrap();
+    let lines = lines_from_file(args.uri_file.clone()).unwrap();
 
     // Collect lines, enqueue for workers
     for l in lines {
         let line = l.unwrap();
-        let uri: Uri = format!("{}{}", base_uri, line).parse().unwrap();
+        let uri: Uri = format!("{}{}", args.base_uri, line).parse().unwrap();
 
         let mut uris = uris.lock().unwrap();
         uris.push(uri);
@@ -107,7 +50,7 @@ fn main() {
 
     println!(
         "Spawning {} threads to warm cache with {} URIs",
-        threads,
+        args.threads,
         len
     );
 
@@ -136,9 +79,13 @@ fn main() {
 
     // Create threads and safe handles
     let mut workers: Vec<_> = vec![];
-    for _ in 0..threads {
+    for _ in 0..args.threads {
+        // Clone values before move
         let uris = uris.clone();
         let user_agent = user_agent.clone();
+        let verbose = args.verbose;
+        let bypass = args.bypass;
+
         workers.push(thread::spawn(
             move || { spawn_worker(uris, user_agent, verbose, bypass); },
         ));
