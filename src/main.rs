@@ -10,8 +10,8 @@ extern crate tokio_core;
 extern crate pbr;
 
 mod cli;
+mod file;
 
-use std::io;
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
@@ -31,22 +31,7 @@ fn main() {
     let args = cli::get_args();
     let user_agent = UserAgent::new(args.user_agent.to_string());
 
-    let uris = Arc::new(Mutex::new(vec![]));
-    let lines = lines_from_file(args.uri_file.clone()).unwrap();
-
-    // Collect lines, enqueue for workers
-    for l in lines {
-        let line = l.unwrap();
-        let uri: Uri = format!("{}{}", args.base_uri, line).parse().unwrap();
-
-        let mut uris = uris.lock().unwrap();
-        uris.push(uri);
-    }
-
-    let len: u64 = {
-        let uris = uris.lock().unwrap();
-        uris.len() as u64
-    };
+    let (uris, len) = file::read_uris(&args.base_uri, &args.uri_file);
 
     println!(
         "Spawning {} threads to warm cache with {} URIs",
@@ -149,17 +134,4 @@ fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent, verbose: bool
 fn get_next_uri(uris: &Arc<Mutex<Vec<Uri>>>) -> Option<Uri> {
     let mut uris = uris.lock().unwrap();
     uris.pop()
-}
-
-
-use std::io::prelude::*;
-use std::path::Path;
-use std::fs::File;
-
-fn lines_from_file<P>(filename: P) -> Result<io::Lines<io::BufReader<File>>, io::Error>
-where
-    P: AsRef<Path>,
-{
-    let file = File::open(filename)?;
-    Ok(io::BufReader::new(file).lines())
 }
