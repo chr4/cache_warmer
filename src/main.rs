@@ -7,11 +7,13 @@ extern crate clap;
 extern crate hyper_tls;
 extern crate futures;
 extern crate tokio_core;
+extern crate pbr;
 
 use std::io;
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use pbr::ProgressBar;
 use clap::{Arg, App};
 use futures::Future;
 use futures::stream::Stream;
@@ -98,46 +100,57 @@ fn main() {
         uris.push(uri);
     }
 
+    let len: u64 = {
+        let uris = uris.lock().unwrap();
+        uris.len() as u64
+    };
+
+    println!(
+        "Spawning {} threads to warm cache with {} URIs",
+        threads,
+        len
+    );
+
     let clone = uris.clone();
-    thread::spawn(move || {
-        let interval: usize = 3;
-        let mut len = {
-            let uris = clone.lock().unwrap();
-            uris.len()
-        };
-        println!("Started cache warming with {} URIs", len);
+    let status = thread::spawn(move || {
+        let mut len = len;
+        let mut pb = ProgressBar::new(len);
 
         loop {
-            thread::sleep(Duration::from_secs(interval as u64));
-            let new_len = {
+            let new_len: u64 = {
                 let uris = clone.lock().unwrap();
-                uris.len()
+                uris.len() as u64
             };
-            println!(
-                "Remaining URIs: {} (~{} req/s)",
-                new_len,
-                (len - new_len) / interval
-            );
+
+            pb.add(len - new_len);
             len = new_len;
+            thread::sleep(Duration::from_secs(1));
+
+            // Break once all work is done
+            if len == 0 {
+                pb.finish();
+                break;
+            }
         }
     });
 
     // Create threads and safe handles
-    let mut handles: Vec<_> = vec![];
+    let mut workers: Vec<_> = vec![];
     for _ in 0..threads {
         let uris = uris.clone();
         let user_agent = user_agent.clone();
-        handles.push(thread::spawn(
+        workers.push(thread::spawn(
             move || { spawn_worker(uris, user_agent, verbose, bypass); },
         ));
     }
 
     // Block until all work is done
-    for h in handles {
+    for h in workers {
         h.join().unwrap();
     }
 
-    println!("Done. Cache warming complete.");
+    status.join().unwrap();
+    println!("Done. Warmed up {} URLs.", len);
 }
 
 fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent, verbose: bool, bypass: bool) {
