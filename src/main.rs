@@ -31,8 +31,8 @@ fn main() {
         let line = l.unwrap();
         let uri: Uri = format!("https://chr4.org/{}", line).parse().unwrap();
 
-        let mut input = uris.lock().unwrap();
-        input.push(uri);
+        let mut uris = uris.lock().unwrap();
+        uris.push(uri);
     }
 
     let handles: Vec<_> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
