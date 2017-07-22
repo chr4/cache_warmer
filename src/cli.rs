@@ -17,6 +17,11 @@ pub fn get_args() -> Args {
         .about("Fires mass requests to warm up nginx cache")
         .author("Chris Aumann <me@chr4.org>")
         .arg(
+            Arg::with_name("uri-file")
+                .help("File with URLs to warm up")
+                .required(true),
+        )
+        .arg(
             Arg::with_name("threads")
                 .short("t")
                 .long("threads")
@@ -30,15 +35,6 @@ pub fn get_args() -> Args {
                 .long("base-uri")
                 .value_name("Base URI")
                 .help("")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("uri-file")
-                .short("f")
-                .long("uri-file")
-                .value_name("FILE")
-                .help("File with URLs to warm up")
-                .required(true)
                 .takes_value(true),
         )
         .arg(
