@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate hyper;
 
+#[macro_use]
+extern crate clap;
+
 extern crate hyper_tls;
 extern crate futures;
 extern crate tokio_core;
@@ -9,6 +12,7 @@ use std::io;
 use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use clap::{Arg, App};
 use futures::Future;
 use futures::stream::Stream;
 use hyper::{Uri, Client, Request, Method};
@@ -20,17 +24,75 @@ use tokio_core::reactor::Core;
 header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
 fn main() {
-    let threads = 4;
-    let user_agent_desktop = "Googlebot (cache warmer)";
-    let user_agent_mobile = "Googlebot Android Mobile (cache warmer)";
+    let args = App::new("cache_warmer")
+        .version("0.1")
+        .about("Fires mass requests to warm up nginx cache")
+        .author("Chris Aumann <me@chr4.org>")
+        .arg(
+            Arg::with_name("threads")
+                .short("t")
+                .long("threads")
+                .value_name("N")
+                .help("Spawn N threads (defaults to 4)")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("base-uri")
+                .short("b")
+                .long("base-uri")
+                .value_name("Base URI")
+                .help("")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("uri-file")
+                .short("f")
+                .long("uri-file")
+                .value_name("FILE")
+                .help("File with URLs to warm up")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("user-agent")
+                .short("u")
+                .long("--user-agent")
+                .value_name("STRING")
+                .help("User-Agent to use")
+                .takes_value(true),
+        )
+        .arg(Arg::with_name("bypass").short("c").long("--bypass").help(
+            "Set cacheupdate cookie to bypass cache",
+        ))
+        .arg(Arg::with_name("verbose").short("v").long("verbose").help(
+            "Be verbose",
+        ))
+        .get_matches();
+
+    // Default to 4 threads
+    let threads = if args.is_present("threads") {
+        value_t!(args.value_of("threads"), u32).unwrap_or_else(|e| e.exit())
+    } else {
+        4
+    };
+
+    let verbose = args.is_present("verbose");
+    let bypass = args.is_present("bypass");
+    let base_uri = args.value_of("base-uri").unwrap_or("");
+    let uri_file = args.value_of("uri-file").unwrap();
+
+    let ua_string = args.value_of("user-agent").unwrap_or(
+        "Googlebot (cache warmer)",
+    );
+    let user_agent = UserAgent::new(ua_string.to_string());
 
     let uris = Arc::new(Mutex::new(vec![]));
-    let lines = lines_from_file("urls.txt").unwrap();
+    let lines = lines_from_file(uri_file).unwrap();
 
     // Collect lines, enqueue for workers
     for l in lines {
         let line = l.unwrap();
-        let uri: Uri = format!("https://chr4.org/{}", line).parse().unwrap();
+        let uri: Uri = format!("{}{}", base_uri, line).parse().unwrap();
 
         let mut uris = uris.lock().unwrap();
         uris.push(uri);
@@ -60,24 +122,25 @@ fn main() {
         }
     });
 
-    let handles: Vec<_> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-        .iter()
-        .map(|_| {
-            let uris = uris.clone();
-            thread::spawn(move || {
-                spawn_worker(uris, UserAgent::new(user_agent_desktop));
-            })
-        })
-        .collect();
+    // Create threads and safe handles
+    let mut handles: Vec<_> = vec![];
+    for _ in 0..threads {
+        let uris = uris.clone();
+        let user_agent = user_agent.clone();
+        handles.push(thread::spawn(
+            move || { spawn_worker(uris, user_agent, verbose, bypass); },
+        ));
+    }
 
     // Block until all work is done
     for h in handles {
         h.join().unwrap();
     }
+
     println!("Done. Cache warming complete.");
 }
 
-fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent) {
+fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent, verbose: bool, bypass: bool) {
     let mut core = Core::new().unwrap();
     let handle = core.handle();
 
@@ -97,20 +160,24 @@ fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent) {
         req.headers_mut().set(user_agent.clone());
 
         // Set cookie to punch through cache
-        let mut cookie = Cookie::new();
-        cookie.append("cacheupdate", "true");
-        req.headers_mut().set(cookie);
+        if bypass {
+            let mut cookie = Cookie::new();
+            cookie.append("cacheupdate", "true");
+            req.headers_mut().set(cookie);
+        }
 
         let work = client.request(req).and_then(|res| {
-            // TODO: Print this when --verbose flag is given
-            // println!(
-            //     "{}: {} {:?}",
-            //     uri,
-            //     res.status(),
-            //     res.headers().get::<XCacheStatus>()
-            // );
+            if verbose {
+                println!(
+                    "\t{}: {} {:?}",
+                    uri,
+                    res.status(),
+                    res.headers().get::<XCacheStatus>()
+                );
+            }
 
             // We need to read out the full body, so the connection can be closed.
+            // TODO: Is there a more efficient way of consuming the body?
             res.body().for_each(|_| Ok(()))
         });
 
