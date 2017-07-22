@@ -7,6 +7,7 @@ extern crate tokio_core;
 
 use std::io;
 use std::thread;
+use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use futures::Future;
 use futures::stream::Stream;
@@ -35,12 +36,36 @@ fn main() {
         uris.push(uri);
     }
 
+    let clone = uris.clone();
+    thread::spawn(move || {
+        let interval: usize = 3;
+        let mut len = {
+            let uris = clone.lock().unwrap();
+            uris.len()
+        };
+        println!("Started cache warming with {} URIs", len);
+
+        loop {
+            thread::sleep(Duration::from_secs(interval as u64));
+            let new_len = {
+                let uris = clone.lock().unwrap();
+                uris.len()
+            };
+            println!(
+                "Remaining URIs: {} (~{} req/s)",
+                new_len,
+                (len - new_len) / interval
+            );
+            len = new_len;
+        }
+    });
+
     let handles: Vec<_> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
         .iter()
         .map(|_| {
-            let x = uris.clone();
+            let uris = uris.clone();
             thread::spawn(move || {
-                spawn_worker(x, UserAgent::new(user_agent_desktop));
+                spawn_worker(uris, UserAgent::new(user_agent_desktop));
             })
         })
         .collect();
@@ -49,6 +74,7 @@ fn main() {
     for h in handles {
         h.join().unwrap();
     }
+    println!("Done. Cache warming complete.");
 }
 
 fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent) {
@@ -76,12 +102,13 @@ fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent) {
         req.headers_mut().set(cookie);
 
         let work = client.request(req).and_then(|res| {
-            println!(
-                "{}: {} {:?}",
-                uri,
-                res.status(),
-                res.headers().get::<XCacheStatus>()
-            );
+            // TODO: Print this when --verbose flag is given
+            // println!(
+            //     "{}: {} {:?}",
+            //     uri,
+            //     res.status(),
+            //     res.headers().get::<XCacheStatus>()
+            // );
 
             // We need to read out the full body, so the connection can be closed.
             res.body().for_each(|_| Ok(()))
