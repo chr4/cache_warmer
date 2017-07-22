@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use futures::Future;
 use futures::stream::Stream;
 use hyper::{Uri, Client, Request, Method};
-use hyper::header::{UserAgent, SetCookie};
+use hyper::header::{UserAgent, Cookie};
 use hyper_tls::HttpsConnector;
 use tokio_core::reactor::Core;
 
@@ -70,9 +70,10 @@ fn spawn_worker(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent) {
         let mut req: hyper::Request = Request::new(Method::Get, uri.clone());
         req.headers_mut().set(user_agent.clone());
 
-        req.headers_mut().set(SetCookie(
-            vec![String::from("cacheupdate=true")],
-        ));
+        // Set cookie to punch through cache
+        let mut cookie = Cookie::new();
+        cookie.append("cacheupdate", "true");
+        req.headers_mut().set(cookie);
 
         let work = client.request(req).and_then(|res| {
             println!(
