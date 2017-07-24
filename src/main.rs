@@ -10,8 +10,8 @@ extern crate tokio_core;
 extern crate pbr;
 
 mod cli;
+mod loader;
 mod file;
-mod worker;
 
 use std::thread;
 use std::time::Duration;
@@ -21,29 +21,28 @@ use hyper::header::UserAgent;
 
 fn main() {
     let args = cli::get_args();
-    let user_agent = UserAgent::new(args.user_agent.to_string());
-
-    let (uris, len) = file::read_uris(&args.base_uri, &args.uri_file);
+    let mut loader = loader::Loader::new(
+        &args.uri_file,
+        &args.base_uri,
+        &args.user_agent,
+        &args.captcha_string,
+        args.bypass,
+    );
 
     println!(
         "Spawning {} threads to warm cache with {} URIs",
         args.threads,
-        len
+        loader.length(),
     );
 
-    let clone = uris.clone();
+    let status_loader = loader.clone();
     let status = thread::spawn(move || {
-        let mut len = len;
-        let mut pb = ProgressBar::new(len);
+        let count = status_loader.length() as u64;
+        let mut pb = ProgressBar::new(count);
 
         loop {
-            let new_len: u64 = {
-                let uris = clone.lock().unwrap();
-                uris.len() as u64
-            };
-
-            pb.add(len - new_len);
-            len = new_len;
+            let len = status_loader.length() as u64;
+            pb.add(count - len);
             thread::sleep(Duration::from_secs(1));
 
             // Break once all work is done
@@ -51,22 +50,17 @@ fn main() {
                 pb.finish();
                 break;
             }
+
+            // TODO: Break when captcha was found?
         }
     });
 
     // Create threads and safe handles
     let mut workers: Vec<_> = vec![];
     for _ in 0..args.threads {
-        // Clone values before move
-        let uris = uris.clone();
-        let user_agent = user_agent.clone();
-        let captcha_string = args.captcha_string.clone();
+        let mut loader = loader.clone();
         let verbose = args.verbose;
-        let bypass = args.bypass;
-
-        workers.push(thread::spawn(move || {
-            worker::spawn(uris, user_agent, &captcha_string, verbose, bypass);
-        }));
+        workers.push(thread::spawn(move || { loader.spawn(verbose); }));
     }
 
     // Block until all work is done
@@ -75,5 +69,5 @@ fn main() {
     }
 
     status.join().unwrap();
-    println!("Done. Warmed up {} URLs.", len);
+    // TODO: Print status
 }
