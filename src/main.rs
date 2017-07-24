@@ -39,18 +39,16 @@ fn main() {
         let mut pb = ProgressBar::new(count);
 
         loop {
-            let len = status_loader.length() as u64;
-            pb.add(count - len);
             thread::sleep(Duration::from_secs(1));
+            pb.set(status_loader.length_done() as u64);
 
             // Break when captcha was found
             if status_loader.found_captcha() {
-                pb.set(status_loader.done_count() as u64);
                 break;
             }
 
             // Finish drawing progress bar and exit once all work is done
-            if len == 0 {
+            if status_loader.length() == 0 {
                 pb.finish();
                 break;
             }

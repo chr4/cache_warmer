@@ -53,7 +53,6 @@ impl Loader {
         bypass: bool,
     ) -> Arc<Loader> {
         let mut uris = Vec::new();
-        println!("Loading from {}", uri_file);
         let lines = lines_from_file(uri_file).unwrap();
 
         for l in lines {
@@ -103,7 +102,7 @@ impl Loader {
         uris.len()
     }
 
-    pub fn done_count(&self) -> usize {
+    pub fn length_done(&self) -> usize {
         let uris = self.uris_done.lock().unwrap();
         uris.len()
     }
