@@ -7,7 +7,6 @@ pub struct Args {
     pub uri_file: String,
     pub user_agent: String,
     pub captcha_string: String,
-    pub verbose: bool,
     pub bypass: bool,
 }
 
@@ -56,9 +55,6 @@ pub fn get_args() -> Args {
         .arg(Arg::with_name("bypass").short("p").long("--bypass").help(
             "Set cacheupdate cookie to bypass cache",
         ))
-        .arg(Arg::with_name("verbose").short("v").long("verbose").help(
-            "Be verbose",
-        ))
         .get_matches();
 
     Args {
@@ -67,7 +63,6 @@ pub fn get_args() -> Args {
         } else {
             4
         },
-        verbose: args.is_present("verbose"),
         bypass: args.is_present("bypass"),
         base_uri: args.value_of("base-uri").unwrap_or("").to_string(),
         captcha_string: args.value_of("captcha-string").unwrap_or("").to_string(),

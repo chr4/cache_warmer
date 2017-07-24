@@ -59,8 +59,7 @@ fn main() {
     let mut workers: Vec<_> = vec![];
     for _ in 0..args.threads {
         let mut loader = loader.clone();
-        let verbose = args.verbose;
-        workers.push(thread::spawn(move || { loader.spawn(verbose); }));
+        workers.push(thread::spawn(move || { loader.spawn(); }));
     }
 
     // Block until all work is done

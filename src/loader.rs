@@ -107,7 +107,7 @@ impl Loader {
         uris.pop()
     }
 
-    pub fn spawn(&self, verbose: bool) {
+    pub fn spawn(&self) {
         let mut core = Core::new().unwrap();
         let handle = core.handle();
 
@@ -132,15 +132,6 @@ impl Loader {
                     Some(s) => lookup_cache_status(s),
                     None => CacheStatus::Unset,
                 };
-
-                if verbose {
-                    println!(
-                        "\n\t{:?}: {} {:?}",
-                        cache_resource.uri,
-                        res.status(),
-                        cache_resource.cache_status,
-                    );
-                }
 
                 res.body().concat2().and_then(move |body| {
                     // body is a &[8], so from_utf8_lossy() is required here
