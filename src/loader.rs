@@ -19,7 +19,6 @@ enum CacheStatus {
     Miss,
     Bypass,
     Unset,
-    Unknown,
 }
 
 #[derive(Debug)]
@@ -77,7 +76,7 @@ impl Loader {
 
             uris.push(CacheResource {
                 uri: uri,
-                cache_status: CacheStatus::Unknown,
+                cache_status: CacheStatus::Unset,
                 captcha: false,
             });
         }
@@ -181,25 +180,28 @@ impl Loader {
 
     pub fn print_stats(&self) {
         let uris = self.uris_done.lock().unwrap();
-        let cache_hit: Vec<_> = uris.iter()
-            .filter(|res| res.cache_status == CacheStatus::Hit)
-            .collect();
-        let cache_miss: Vec<_> = uris.iter()
-            .filter(|res| res.cache_status == CacheStatus::Miss)
-            .collect();
-        let cache_bypass: Vec<_> = uris.iter()
-            .filter(|res| res.cache_status == CacheStatus::Bypass)
-            .collect();
         let captcha_found: Vec<_> = uris.iter().filter(|res| res.captcha).collect();
+
 
         println!("\n");
         if let Some(res) = captcha_found.first() {
             println!("Ran into Captcha at '{}', stopping...", res.uri);
         }
         println!("Processed {} URLs", uris.len());
-        println!("\tCache HIT: {}", cache_hit.len());
-        println!("\tCache MISS: {}", cache_miss.len());
-        println!("\tCache BYPASS: {}", cache_bypass.len());
+
+        for cache_status in vec![
+            CacheStatus::Hit,
+            CacheStatus::Miss,
+            CacheStatus::Bypass,
+            CacheStatus::Unset,
+        ]
+        {
+
+            let results: Vec<_> = uris.iter()
+                .filter(|res| res.cache_status == cache_status)
+                .collect();
+            println!("\t{:?}: {}", cache_status, results.len());
+        }
     }
 }
 
@@ -208,7 +210,7 @@ fn lookup_cache_status(status: &str) -> CacheStatus {
         "MISS" => CacheStatus::Miss,
         "HIT" => CacheStatus::Hit,
         "BYPASS" => CacheStatus::Bypass,
-        _ => CacheStatus::Unknown,
+        _ => CacheStatus::Unset,
     }
 }
 
