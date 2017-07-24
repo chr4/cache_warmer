@@ -3,11 +3,12 @@ use std::io;
 use std::path::Path;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 
 use futures::Future;
 use futures::stream::Stream;
 
-use hyper::{Uri, Client, Request, Method};
+use hyper::{Uri, Client, Request, Method, StatusCode};
 use hyper::header::{UserAgent, Cookie};
 use hyper_tls::HttpsConnector;
 
@@ -25,6 +26,7 @@ enum CacheStatus {
 struct CacheResource {
     uri: Uri,
     cache_status: CacheStatus,
+    http_status: StatusCode,
     captcha: bool,
 }
 
@@ -77,6 +79,7 @@ impl Loader {
             uris.push(CacheResource {
                 uri: uri,
                 cache_status: CacheStatus::Unset,
+                http_status: StatusCode::Unregistered(0),
                 captcha: false,
             });
         }
@@ -148,6 +151,8 @@ impl Loader {
                     None => CacheStatus::Unset,
                 };
 
+                cache_resource.http_status = res.status();
+
                 res.body().concat2().and_then(move |body| {
                     // body is a &[8], so from_utf8_lossy() is required here
                     let html = String::from_utf8_lossy(body.as_ref());
@@ -189,6 +194,7 @@ impl Loader {
         }
         println!("Processed {} URLs", uris.len());
 
+        println!("\nX-Cache-Status header statistics:");
         for cache_status in vec![
             CacheStatus::Hit,
             CacheStatus::Miss,
@@ -201,6 +207,18 @@ impl Loader {
                 .filter(|res| res.cache_status == cache_status)
                 .collect();
             println!("\t{:?}: {}", cache_status, results.len());
+        }
+
+
+        let mut http_status = HashMap::new();
+        for uri in uris.iter() {
+            let count = http_status.entry(uri.http_status).or_insert(0);
+            *count += 1;
+        }
+
+        println!("\nHTTP Status Code statistics:");
+        for (key, value) in http_status {
+            println!("\t{:?}: {}", key, value);
         }
     }
 }
