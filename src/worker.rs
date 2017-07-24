@@ -9,7 +9,13 @@ use tokio_core::reactor::Core;
 // Make custom X-Cache-Status header known
 header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
-pub fn spawn(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent, verbose: bool, bypass: bool) {
+pub fn spawn(
+    uris: Arc<Mutex<Vec<Uri>>>,
+    user_agent: UserAgent,
+    captcha_string: &str,
+    verbose: bool,
+    bypass: bool,
+) {
     let mut core = Core::new().unwrap();
     let handle = core.handle();
 
@@ -45,9 +51,17 @@ pub fn spawn(uris: Arc<Mutex<Vec<Uri>>>, user_agent: UserAgent, verbose: bool, b
                 );
             }
 
-            // We need to read out the full body, so the connection can be closed.
-            // TODO: Is there a more efficient way of consuming the body?
-            res.body().for_each(|_| Ok(()))
+            res.body().concat2().and_then(move |body| {
+                // body is a &[8], so from_utf8_lossy() is required here
+                let html = String::from_utf8_lossy(body.as_ref());
+                if captcha_string.len() > 0 && html.contains(captcha_string) {
+                    println!(
+                        "Found '{}' in response body. Stopping thread.",
+                        captcha_string
+                    );
+                }
+                Ok(())
+            })
         });
 
         core.run(work).unwrap();

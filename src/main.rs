@@ -60,11 +60,12 @@ fn main() {
         // Clone values before move
         let uris = uris.clone();
         let user_agent = user_agent.clone();
+        let captcha_string = args.captcha_string.clone();
         let verbose = args.verbose;
         let bypass = args.bypass;
 
         workers.push(thread::spawn(move || {
-            worker::spawn(uris, user_agent, verbose, bypass);
+            worker::spawn(uris, user_agent, &captcha_string, verbose, bypass);
         }));
     }
 

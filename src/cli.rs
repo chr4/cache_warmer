@@ -6,7 +6,7 @@ pub struct Args {
     pub base_uri: String,
     pub uri_file: String,
     pub user_agent: String,
-
+    pub captcha_string: String,
     pub verbose: bool,
     pub bypass: bool,
 }
@@ -45,7 +45,15 @@ pub fn get_args() -> Args {
                 .help("User-Agent to use")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("bypass").short("c").long("--bypass").help(
+        .arg(
+            Arg::with_name("captcha-string")
+                .short("c")
+                .long("--captcha-string")
+                .value_name("STRING")
+                .help("Stop processing when STRING was found in body")
+                .takes_value(true),
+        )
+        .arg(Arg::with_name("bypass").short("p").long("--bypass").help(
             "Set cacheupdate cookie to bypass cache",
         ))
         .arg(Arg::with_name("verbose").short("v").long("verbose").help(
@@ -62,6 +70,7 @@ pub fn get_args() -> Args {
         verbose: args.is_present("verbose"),
         bypass: args.is_present("bypass"),
         base_uri: args.value_of("base-uri").unwrap_or("").to_string(),
+        captcha_string: args.value_of("captcha-string").unwrap_or("").to_string(),
         uri_file: args.value_of("uri-file").unwrap().to_string(),
         user_agent: args.value_of("user-agent")
             .unwrap_or("Googlebot (cache warmer)")
