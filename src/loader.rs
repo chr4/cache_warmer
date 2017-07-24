@@ -43,8 +43,10 @@ header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
 
 impl Loader {
-    // TODO: I'd like to have self.bypass() and self.user_agent(ua: &str),
-    //       but this is borrow checker hell
+    // TODO: I'd like to have, but I'm lazy to fight to mutable borrow-checker hell
+    //       self.bypass()
+    //       self.user_agent(ua: &str)
+    //       self.captcha_string(s: &str)
     pub fn new(
         uri_file: &str,
         base_uri: &str,
