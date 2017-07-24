@@ -13,9 +13,8 @@ use hyper_tls::HttpsConnector;
 
 use tokio_core::reactor::Core;
 
-
-#[derive(Debug)]
-pub enum CacheStatus {
+#[derive(Debug, PartialEq)]
+enum CacheStatus {
     Hit,
     Miss,
     Bypass,
@@ -24,7 +23,7 @@ pub enum CacheStatus {
 }
 
 #[derive(Debug)]
-pub struct CacheResource {
+struct CacheResource {
     uri: Uri,
     cache_status: CacheStatus,
     captcha: bool,
@@ -32,7 +31,8 @@ pub struct CacheResource {
 
 #[derive(Debug)]
 pub struct Loader {
-    uris: Mutex<Vec<CacheResource>>,
+    uris_todo: Mutex<Vec<CacheResource>>,
+    uris_done: Mutex<Vec<CacheResource>>,
     user_agent: UserAgent,
     cookie: Cookie,
     captcha_string: String,
@@ -90,7 +90,8 @@ impl Loader {
         }
 
         Arc::new(Loader {
-            uris: Mutex::new(uris),
+            uris_todo: Mutex::new(uris),
+            uris_done: Mutex::new(Vec::new()),
             user_agent: user_agent,
             cookie: cookie,
             captcha_string: captcha_string.to_string(),
@@ -98,13 +99,23 @@ impl Loader {
     }
 
     pub fn length(&self) -> usize {
-        let uris = self.uris.lock().unwrap();
+        let uris = self.uris_todo.lock().unwrap();
         uris.len()
     }
 
-    pub fn pop(&self) -> Option<CacheResource> {
-        let mut uris = self.uris.lock().unwrap();
+    pub fn done_count(&self) -> usize {
+        let uris = self.uris_done.lock().unwrap();
+        uris.len()
+    }
+
+    fn pop(&self) -> Option<CacheResource> {
+        let mut uris = self.uris_todo.lock().unwrap();
         uris.pop()
+    }
+
+    fn push(&self, cache_resource: CacheResource) {
+        let mut uris = self.uris_done.lock().unwrap();
+        uris.push(cache_resource);
     }
 
     pub fn spawn(&self) {
@@ -117,6 +128,10 @@ impl Loader {
             .build(&handle);
 
         loop {
+            if self.found_captcha() {
+                break;
+            }
+
             let mut cache_resource = match self.pop() {
                 Some(uri) => uri,
                 None => break, // Break when no URLs are left
@@ -137,13 +152,13 @@ impl Loader {
                     // body is a &[8], so from_utf8_lossy() is required here
                     let html = String::from_utf8_lossy(body.as_ref());
 
+                    // Take note if captcha string was found in body
                     if self.captcha_string.len() > 0 && html.contains(&self.captcha_string) {
                         cache_resource.captcha = true;
-                        println!(
-                            "Found '{}' in response body. Stopping thread.",
-                            self.captcha_string
-                        );
                     }
+
+                    // Add CacheResource to done
+                    self.push(cache_resource);
 
                     Ok(())
                 })
@@ -151,6 +166,39 @@ impl Loader {
 
             core.run(work).unwrap();
         }
+    }
+
+    pub fn found_captcha(&self) -> bool {
+        let uris = self.uris_done.lock().unwrap();
+        let captcha_found: Vec<_> = uris.iter().filter(|res| res.captcha).collect();
+
+        match captcha_found.first() {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
+    pub fn print_stats(&self) {
+        let uris = self.uris_done.lock().unwrap();
+        let cache_hit: Vec<_> = uris.iter()
+            .filter(|res| res.cache_status == CacheStatus::Hit)
+            .collect();
+        let cache_miss: Vec<_> = uris.iter()
+            .filter(|res| res.cache_status == CacheStatus::Miss)
+            .collect();
+        let cache_bypass: Vec<_> = uris.iter()
+            .filter(|res| res.cache_status == CacheStatus::Bypass)
+            .collect();
+        let captcha_found: Vec<_> = uris.iter().filter(|res| res.captcha).collect();
+
+        println!("\n");
+        if let Some(res) = captcha_found.first() {
+            println!("Ran into Captcha at '{}', stopping...", res.uri);
+        }
+        println!("Processed {} URLs", uris.len());
+        println!("\tCache HIT: {}", cache_hit.len());
+        println!("\tCache MISS: {}", cache_miss.len());
+        println!("\tCache BYPASS: {}", cache_bypass.len());
     }
 }
 

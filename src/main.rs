@@ -11,17 +11,15 @@ extern crate pbr;
 
 mod cli;
 mod loader;
-mod file;
 
 use std::thread;
 use std::time::Duration;
 use pbr::ProgressBar;
-use hyper::header::UserAgent;
 
 
 fn main() {
     let args = cli::get_args();
-    let mut loader = loader::Loader::new(
+    let loader = loader::Loader::new(
         &args.uri_file,
         &args.base_uri,
         &args.user_agent,
@@ -45,20 +43,24 @@ fn main() {
             pb.add(count - len);
             thread::sleep(Duration::from_secs(1));
 
-            // Break once all work is done
+            // Break when captcha was found
+            if status_loader.found_captcha() {
+                pb.set(status_loader.done_count() as u64);
+                break;
+            }
+
+            // Finish drawing progress bar and exit once all work is done
             if len == 0 {
                 pb.finish();
                 break;
             }
-
-            // TODO: Break when captcha was found?
         }
     });
 
     // Create threads and safe handles
     let mut workers: Vec<_> = vec![];
     for _ in 0..args.threads {
-        let mut loader = loader.clone();
+        let loader = loader.clone();
         workers.push(thread::spawn(move || { loader.spawn(); }));
     }
 
@@ -68,5 +70,5 @@ fn main() {
     }
 
     status.join().unwrap();
-    // TODO: Print status
+    loader.print_stats();
 }
