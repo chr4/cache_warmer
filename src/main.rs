@@ -26,7 +26,10 @@ fn main() {
         &args.captcha_string,
         args.keep_alive,
         args.bypass,
-    );
+    ).unwrap_or_else(|err| {
+        println!("{}", err);
+        std::process::exit(-1);
+    });
 
     println!(
         "Spawning {} threads to warm cache with {} URIs",
@@ -65,9 +68,9 @@ fn main() {
 
     // Block until all work is done
     for h in workers {
-        h.join().unwrap();
+        h.join().expect("Error joining worker threads");
     }
 
-    status.join().unwrap();
+    status.join().expect("Error joining status thread");
     loader.print_stats();
 }

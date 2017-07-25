@@ -56,9 +56,12 @@ impl Loader {
         captcha_string: &str,
         keep_alive: bool,
         bypass: bool,
-    ) -> Arc<Loader> {
+    ) -> Result<Arc<Loader>, String> {
         let mut uris = Vec::new();
-        let lines = lines_from_file(uri_file).unwrap();
+        let lines = match lines_from_file(uri_file) {
+            Ok(file) => file,
+            Err(err) => return Err(format!("Error opening file {}: {}", uri_file, err)),
+        };
 
         for l in lines {
             // Skip erroneous lines
@@ -94,14 +97,14 @@ impl Loader {
             cookie.append("cacheupdate", "true");
         }
 
-        Arc::new(Loader {
+        Ok(Arc::new(Loader {
             uris_todo: Mutex::new(uris),
             uris_done: Mutex::new(Vec::new()),
             user_agent: user_agent,
             cookie: cookie,
             keep_alive: keep_alive,
             captcha_string: captcha_string.to_string(),
-        })
+        }))
     }
 
     pub fn length(&self) -> usize {
@@ -125,12 +128,27 @@ impl Loader {
     }
 
     pub fn spawn(&self) {
-        let mut core = Core::new().unwrap();
+        let mut core = match Core::new() {
+            Ok(core) => core,
+            Err(err) => {
+                println!("Error creating Tokio core: {} - stopping this thread!", err);
+                return;
+            }
+        };
         let handle = core.handle();
 
         let client = Client::configure()
             .keep_alive(self.keep_alive)
-            .connector(HttpsConnector::new(4, &handle).unwrap())
+            .connector(match HttpsConnector::new(4, &handle) {
+                Ok(connector) => connector,
+                Err(err) => {
+                    println!(
+                        "Error creating HttpsConnector: {} - stopping this thread!",
+                        err
+                    );
+                    return;
+                }
+            })
             .build(&handle);
 
         loop {
@@ -144,11 +162,11 @@ impl Loader {
             };
 
             let uri = cache_resource.uri.clone();
-            let mut req: Request = Request::new(Method::Get, uri);
+            let mut req: Request = Request::new(Method::Get, cache_resource.uri.clone());
             req.headers_mut().set(self.user_agent.clone());
             req.headers_mut().set(self.cookie.clone());
 
-            let work = client.request(req).and_then(|res| {
+            let task = client.request(req).and_then(|res| {
                 cache_resource.cache_status = match res.headers().get::<XCacheStatus>() {
                     Some(s) => lookup_cache_status(s),
                     None => CacheStatus::Unset,
@@ -172,7 +190,10 @@ impl Loader {
                 })
             });
 
-            core.run(work).unwrap();
+            match core.run(task) {
+                Ok(task) => task,
+                Err(err) => println!("Error: {} (URL: {})", err, uri),
+            }
         }
     }
 
