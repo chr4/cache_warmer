@@ -24,6 +24,7 @@ fn main() {
         &args.base_uri,
         &args.user_agent,
         &args.captcha_string,
+        args.keep_alive,
         args.bypass,
     );
 

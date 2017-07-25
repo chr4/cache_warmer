@@ -37,6 +37,7 @@ pub struct Loader {
     user_agent: UserAgent,
     cookie: Cookie,
     captcha_string: String,
+    keep_alive: bool,
 }
 
 // Make custom X-Cache-Status header known
@@ -53,6 +54,7 @@ impl Loader {
         base_uri: &str,
         ua_string: &str,
         captcha_string: &str,
+        keep_alive: bool,
         bypass: bool,
     ) -> Arc<Loader> {
         let mut uris = Vec::new();
@@ -97,6 +99,7 @@ impl Loader {
             uris_done: Mutex::new(Vec::new()),
             user_agent: user_agent,
             cookie: cookie,
+            keep_alive: keep_alive,
             captcha_string: captcha_string.to_string(),
         })
     }
@@ -126,7 +129,7 @@ impl Loader {
         let handle = core.handle();
 
         let client = Client::configure()
-            .keep_alive(true)
+            .keep_alive(self.keep_alive)
             .connector(HttpsConnector::new(4, &handle).unwrap())
             .build(&handle);
 

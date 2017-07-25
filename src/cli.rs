@@ -6,6 +6,7 @@ pub struct Args {
     pub base_uri: String,
     pub uri_file: String,
     pub user_agent: String,
+    pub keep_alive: bool,
     pub captcha_string: String,
     pub bypass: bool,
 }
@@ -37,6 +38,12 @@ pub fn get_args() -> Args {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("no-keep-alive")
+                .short("-n")
+                .long("--no-keep-alive")
+                .help("Do not use keep-alive"),
+        )
+        .arg(
             Arg::with_name("user-agent")
                 .short("u")
                 .long("--user-agent")
@@ -64,6 +71,7 @@ pub fn get_args() -> Args {
             4
         },
         bypass: args.is_present("bypass"),
+        keep_alive: !args.is_present("no-keep-alive"),
         base_uri: args.value_of("base-uri").unwrap_or("").to_string(),
         captcha_string: args.value_of("captcha-string").unwrap_or("").to_string(),
         uri_file: args.value_of("uri-file").unwrap().to_string(),
