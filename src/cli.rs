@@ -4,6 +4,7 @@ use std::process;
 #[derive(Debug)]
 pub struct Args {
     pub threads: u32,
+    pub delay: u64,
     pub base_uri: String,
     pub uri_file: String,
     pub user_agent: String,
@@ -43,6 +44,14 @@ pub fn get_args() -> Args {
                 .short("n")
                 .long("no-keep-alive")
                 .help("Do not use keep-alive"),
+        )
+        .arg(
+            Arg::with_name("delay")
+                .short("d")
+                .long("delay")
+                .value_name("delay")
+                .help("Add delay between requests (in ms)")
+                .takes_value(true),
         )
         .arg(
             Arg::with_name("user-agent")
@@ -104,6 +113,11 @@ pub fn get_args() -> Args {
             value_t!(args.value_of("threads"), u32).unwrap_or_else(|e| e.exit())
         } else {
             4
+        },
+        delay: if args.is_present("delay") {
+            value_t!(args.value_of("delay"), u64).unwrap_or_else(|e| e.exit())
+        } else {
+            0
         },
         cookies: cookies,
         keep_alive: !args.is_present("no-keep-alive"),

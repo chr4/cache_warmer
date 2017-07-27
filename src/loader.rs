@@ -1,5 +1,5 @@
 use std::io::prelude::*;
-use std::io;
+use std::{io, thread, time};
 use std::path::Path;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
@@ -40,6 +40,7 @@ pub struct Loader {
     cookie: Cookie,
     captcha_string: String,
     keep_alive: bool,
+    delay: u64,
 }
 
 // Make custom X-Cache-Status header known
@@ -95,6 +96,7 @@ impl Loader {
             user_agent: user_agent,
             cookie: cookie_jar,
             keep_alive: args.keep_alive,
+            delay: args.delay,
             captcha_string: args.captcha_string.to_string(),
         }))
     }
@@ -186,6 +188,10 @@ impl Loader {
                 Ok(task) => task,
                 Err(err) => println!("Error: {} (URL: {})", err, uri),
             }
+
+            // Sleep before crafing new request when delay is given
+            let duration = time::Duration::from_millis(self.delay);
+            thread::sleep(duration);
         }
     }
 
