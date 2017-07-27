@@ -39,14 +39,14 @@ pub fn get_args() -> Args {
         )
         .arg(
             Arg::with_name("no-keep-alive")
-                .short("-n")
-                .long("--no-keep-alive")
+                .short("n")
+                .long("no-keep-alive")
                 .help("Do not use keep-alive"),
         )
         .arg(
             Arg::with_name("user-agent")
                 .short("u")
-                .long("--user-agent")
+                .long("user-agent")
                 .value_name("STRING")
                 .help("User-Agent to use")
                 .takes_value(true),
@@ -54,12 +54,12 @@ pub fn get_args() -> Args {
         .arg(
             Arg::with_name("captcha-string")
                 .short("c")
-                .long("--captcha-string")
+                .long("captcha-string")
                 .value_name("STRING")
                 .help("Stop processing when STRING was found in body")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("bypass").short("p").long("--bypass").help(
+        .arg(Arg::with_name("bypass").short("p").long("bypass").help(
             "Set cacheupdate cookie to bypass cache",
         ))
         .get_matches();
