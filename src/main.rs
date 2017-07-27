@@ -12,7 +12,7 @@ extern crate pbr;
 mod cli;
 mod loader;
 
-use std::thread;
+use std::{thread, process};
 use std::time::Duration;
 use pbr::ProgressBar;
 
@@ -22,7 +22,7 @@ fn main() {
     let threads = args.threads;
     let loader = loader::Loader::new(args).unwrap_or_else(|err| {
         println!("{}", err);
-        std::process::exit(-1);
+        process::exit(1);
     });
 
     println!(

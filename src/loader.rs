@@ -82,17 +82,18 @@ impl Loader {
 
         let user_agent = UserAgent::new(args.user_agent.to_string());
 
-        // Set cacheupdate=true cookie, to bypass (and update) existing cached sites
-        let mut cookie = Cookie::new();
-        if args.bypass {
-            cookie.append("cacheupdate", "true");
+        // Create cookie jar for all given cookies
+        let mut cookie_jar = Cookie::new();
+        for cookie in args.cookies {
+            let (key, value) = cookie;
+            cookie_jar.append(key, value);
         }
 
         Ok(Arc::new(Loader {
             uris_todo: Mutex::new(uris),
             uris_done: Mutex::new(Vec::new()),
             user_agent: user_agent,
-            cookie: cookie,
+            cookie: cookie_jar,
             keep_alive: args.keep_alive,
             captcha_string: args.captcha_string.to_string(),
         }))

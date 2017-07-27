@@ -1,4 +1,5 @@
 use clap::{App, Arg, ArgGroup};
+use std::process;
 
 #[derive(Debug)]
 pub struct Args {
@@ -8,7 +9,7 @@ pub struct Args {
     pub user_agent: String,
     pub keep_alive: bool,
     pub captcha_string: String,
-    pub bypass: bool,
+    pub cookies: Vec<(String, String)>,
 }
 
 pub fn get_args() -> Args {
@@ -66,16 +67,37 @@ pub fn get_args() -> Args {
         ))
         .arg(
             Arg::with_name("captcha-string")
-                .short("c")
                 .long("captcha-string")
                 .value_name("STRING")
                 .help("Stop processing when STRING was found in body")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("bypass").short("p").long("bypass").help(
-            "Set cacheupdate cookie to bypass cache",
-        ))
+        .arg(
+            Arg::with_name("cookie")
+                .short("c")
+                .long("cookie")
+                .value_name("KEY=VALUE")
+                .help("Set cookie")
+                .takes_value(true)
+                .multiple(true),
+        )
         .get_matches();
+
+    let mut cookies = vec![];
+    let cookie_args = values_t!(args.values_of("cookie"), String).unwrap_or(vec![]);
+    for cookie in cookie_args {
+        // Split cookie in key=value pairs
+        let vec: Vec<&str> = cookie.splitn(2, '=').collect();
+
+        // Check whether key and value are given
+        if vec.len() != 2 {
+            println!("Invalid cookie '{}'. Correct syntax is key=val", cookie);
+            process::exit(1);
+        }
+
+        // Convert result to tuple
+        cookies.push((vec[0].to_string(), vec[1].to_string()));
+    }
 
     Args {
         threads: if args.is_present("threads") {
@@ -83,7 +105,7 @@ pub fn get_args() -> Args {
         } else {
             4
         },
-        bypass: args.is_present("bypass"),
+        cookies: cookies,
         keep_alive: !args.is_present("no-keep-alive"),
         base_uri: args.value_of("base-uri").unwrap_or("").to_string(),
         captcha_string: args.value_of("captcha-string").unwrap_or("").to_string(),
