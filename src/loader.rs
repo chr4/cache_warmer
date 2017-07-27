@@ -210,7 +210,7 @@ impl Loader {
         let captcha_found: Vec<_> = uris.iter().filter(|res| res.captcha).collect();
 
 
-        println!("\n");
+        println!();
         if let Some(res) = captcha_found.first() {
             println!("Ran into Captcha at '{}', stopping...", res.uri);
         }

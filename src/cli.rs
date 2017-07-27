@@ -1,7 +1,7 @@
 use clap::{App, Arg, ArgGroup};
 use std::process;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Args {
     pub threads: u32,
     pub delay: u64,
@@ -9,6 +9,8 @@ pub struct Args {
     pub uri_file: String,
     pub user_agent: String,
     pub keep_alive: bool,
+    pub quiet: bool,
+    pub progress_bar: bool,
     pub captcha_string: String,
     pub cookies: Vec<(String, String)>,
 }
@@ -82,6 +84,20 @@ pub fn get_args() -> Args {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("no-progress-bar")
+                .long("no-progress-bar")
+                .help("Disable the progress bar"),
+        )
+        .arg(Arg::with_name("quiet").long("quiet").help(
+            "Only output errors, no statistics (implies --no-progress-bar)",
+        ))
+        .group(ArgGroup::with_name("verbosity").args(
+            &[
+                "quiet",
+                "no-progress-bar",
+            ],
+        ))
+        .arg(
             Arg::with_name("cookie")
                 .short("c")
                 .long("cookie")
@@ -121,6 +137,8 @@ pub fn get_args() -> Args {
         },
         cookies: cookies,
         keep_alive: !args.is_present("no-keep-alive"),
+        quiet: args.is_present("quiet"),
+        progress_bar: !args.is_present("no-progress-bar") && !args.is_present("quiet"),
         base_uri: args.value_of("base-uri").unwrap_or("").to_string(),
         captcha_string: args.value_of("captcha-string").unwrap_or("").to_string(),
         uri_file: args.value_of("uri-file").unwrap().to_string(),

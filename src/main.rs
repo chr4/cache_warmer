@@ -19,52 +19,62 @@ use pbr::ProgressBar;
 
 fn main() {
     let args = cli::get_args();
-    let threads = args.threads;
+    let main_args = args.clone();
     let loader = loader::Loader::new(args).unwrap_or_else(|err| {
         println!("{}", err);
         process::exit(1);
     });
 
-    println!(
+    if !main_args.quiet {
+        println!(
         "Spawning {} threads to warm cache with {} URIs",
-        threads,
+        main_args.threads,
         loader.length(),
     );
+    }
 
-    let status_loader = loader.clone();
-    let status = thread::spawn(move || {
-        let count = status_loader.length() as u64;
-        let mut pb = ProgressBar::new(count);
+    // Create vector to store thread handles
+    let mut thread_handles: Vec<_> = vec![];
 
-        loop {
-            thread::sleep(Duration::from_secs(1));
-            pb.set(status_loader.length_done() as u64);
+    if main_args.progress_bar {
+        let status_loader = loader.clone();
+        let handle = thread::spawn(move || {
+            let count = status_loader.length() as u64;
+            let mut pb = ProgressBar::new(count);
 
-            // Break when captcha was found
-            if status_loader.found_captcha() {
-                break;
+            loop {
+                thread::sleep(Duration::from_secs(1));
+                pb.set(status_loader.length_done() as u64);
+
+                // Break when captcha was found
+                if status_loader.found_captcha() {
+                    break;
+                }
+
+                // Finish drawing progress bar and exit once all work is done
+                if status_loader.length() == 0 {
+                    pb.finish();
+                    break;
+                }
             }
+        });
 
-            // Finish drawing progress bar and exit once all work is done
-            if status_loader.length() == 0 {
-                pb.finish();
-                break;
-            }
-        }
-    });
+        thread_handles.push(handle);
+    }
 
     // Create threads and safe handles
-    let mut workers: Vec<_> = vec![];
-    for _ in 0..threads {
+    for _ in 0..main_args.threads {
         let loader = loader.clone();
-        workers.push(thread::spawn(move || { loader.spawn(); }));
+        let handle = thread::spawn(move || { loader.spawn(); });
+        thread_handles.push(handle);
     }
 
     // Block until all work is done
-    for h in workers {
-        h.join().expect("Error joining worker threads");
+    for h in thread_handles {
+        h.join().expect("Error joining thread");
     }
 
-    status.join().expect("Error joining status thread");
-    loader.print_stats();
+    if !main_args.quiet {
+        loader.print_stats();
+    }
 }
