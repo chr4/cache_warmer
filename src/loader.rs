@@ -14,6 +14,8 @@ use hyper_tls::HttpsConnector;
 
 use tokio_core::reactor::Core;
 
+use cli::Args;
+
 #[derive(Debug, Hash, PartialEq, Eq)]
 enum CacheStatus {
     Hit,
@@ -45,22 +47,11 @@ header! { (XCacheStatus, "X-Cache-Status") => [String] }
 
 
 impl Loader {
-    // TODO: I'd like to have, but I'm lazy to fight to mutable borrow-checker hell
-    //       self.bypass()
-    //       self.user_agent(ua: &str)
-    //       self.captcha_string(s: &str)
-    pub fn new(
-        uri_file: &str,
-        base_uri: &str,
-        ua_string: &str,
-        captcha_string: &str,
-        keep_alive: bool,
-        bypass: bool,
-    ) -> Result<Arc<Loader>, String> {
+    pub fn new(args: Args) -> Result<Arc<Loader>, String> {
         let mut uris = Vec::new();
-        let lines = match lines_from_file(uri_file) {
+        let lines = match lines_from_file(&args.uri_file) {
             Ok(file) => file,
-            Err(err) => return Err(format!("Error opening file {}: {}", uri_file, err)),
+            Err(err) => return Err(format!("Error opening file {}: {}", &args.uri_file, err)),
         };
 
         for l in lines {
@@ -73,7 +64,7 @@ impl Loader {
                 }
             };
 
-            let uri: Uri = match format!("{}{}", base_uri, line).parse() {
+            let uri: Uri = match format!("{}{}", &args.base_uri, line).parse() {
                 Ok(s) => s,
                 Err(err) => {
                     println!("WARN: Error parsing URI: {}", err);
@@ -89,11 +80,11 @@ impl Loader {
             });
         }
 
-        let user_agent = UserAgent::new(ua_string.to_string());
+        let user_agent = UserAgent::new(args.user_agent.to_string());
 
         // Set cacheupdate=true cookie, to bypass (and update) existing cached sites
         let mut cookie = Cookie::new();
-        if bypass {
+        if args.bypass {
             cookie.append("cacheupdate", "true");
         }
 
@@ -102,8 +93,8 @@ impl Loader {
             uris_done: Mutex::new(Vec::new()),
             user_agent: user_agent,
             cookie: cookie,
-            keep_alive: keep_alive,
-            captcha_string: captcha_string.to_string(),
+            keep_alive: args.keep_alive,
+            captcha_string: args.captcha_string.to_string(),
         }))
     }
 

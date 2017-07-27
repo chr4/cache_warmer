@@ -19,21 +19,15 @@ use pbr::ProgressBar;
 
 fn main() {
     let args = cli::get_args();
-    let loader = loader::Loader::new(
-        &args.uri_file,
-        &args.base_uri,
-        &args.user_agent,
-        &args.captcha_string,
-        args.keep_alive,
-        args.bypass,
-    ).unwrap_or_else(|err| {
+    let threads = args.threads;
+    let loader = loader::Loader::new(args).unwrap_or_else(|err| {
         println!("{}", err);
         std::process::exit(-1);
     });
 
     println!(
         "Spawning {} threads to warm cache with {} URIs",
-        args.threads,
+        threads,
         loader.length(),
     );
 
@@ -61,7 +55,7 @@ fn main() {
 
     // Create threads and safe handles
     let mut workers: Vec<_> = vec![];
-    for _ in 0..args.threads {
+    for _ in 0..threads {
         let loader = loader.clone();
         workers.push(thread::spawn(move || { loader.spawn(); }));
     }
