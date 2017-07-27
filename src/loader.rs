@@ -14,7 +14,7 @@ use hyper_tls::HttpsConnector;
 
 use tokio_core::reactor::Core;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 enum CacheStatus {
     Hit,
     Miss,
@@ -218,25 +218,21 @@ impl Loader {
         }
         println!("Processed {} URLs", uris.len());
 
-        println!("\nX-Cache-Status header statistics:");
-        for cache_status in vec![
-            CacheStatus::Hit,
-            CacheStatus::Miss,
-            CacheStatus::Bypass,
-            CacheStatus::Unset,
-        ]
-        {
 
-            let results: Vec<_> = uris.iter()
-                .filter(|res| res.cache_status == cache_status)
-                .collect();
-            println!("\t{:?}: {}", cache_status, results.len());
+        let mut cache_status = HashMap::new();
+        for uri in uris.iter() {
+            let count = cache_status.entry(&uri.cache_status).or_insert(0);
+            *count += 1;
         }
 
+        println!("\nX-Cache-Status header statistics:");
+        for (key, value) in cache_status {
+            println!("\t{:?}: {}", key, value);
+        }
 
         let mut http_status = HashMap::new();
         for uri in uris.iter() {
-            let count = http_status.entry(uri.http_status).or_insert(0);
+            let count = http_status.entry(&uri.http_status).or_insert(0);
             *count += 1;
         }
 
