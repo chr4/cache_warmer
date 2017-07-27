@@ -13,7 +13,7 @@ mod cli;
 mod loader;
 
 use std::{thread, process};
-use std::time::Duration;
+use std::time::{SystemTime, Duration};
 use pbr::ProgressBar;
 
 
@@ -62,6 +62,9 @@ fn main() {
         thread_handles.push(handle);
     }
 
+    // Start the timer
+    let start_time = SystemTime::now();
+
     // Create threads and safe handles
     for _ in 0..main_args.threads {
         let loader = loader.clone();
@@ -76,5 +79,15 @@ fn main() {
 
     if !main_args.quiet {
         loader.print_stats();
+
+        match start_time.elapsed() {
+            Ok(duration) => {
+                println!(
+                    "\nTotal time taken: {:.3}s",
+                    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+                )
+            }
+            Err(err) => println!("Error getting elapsed time: {}", err),
+        }
     }
 }
