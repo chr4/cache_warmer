@@ -1,4 +1,4 @@
-use clap::{Arg, App};
+use clap::{App, Arg, ArgGroup};
 
 #[derive(Debug)]
 pub struct Args {
@@ -48,9 +48,22 @@ pub fn get_args() -> Args {
                 .short("u")
                 .long("user-agent")
                 .value_name("STRING")
-                .help("User-Agent to use")
+                .help("Use custom user-agent")
                 .takes_value(true),
         )
+        .arg(Arg::with_name("mobile").long("mobile").help(
+            "Use mobile user agent",
+        ))
+        .arg(Arg::with_name("desktop").long("desktop").help(
+            "Use desktop user agent (default)",
+        ))
+        .group(ArgGroup::with_name("ua-group").args(
+            &[
+                "user-agent",
+                "mobile",
+                "desktop",
+            ],
+        ))
         .arg(
             Arg::with_name("captcha-string")
                 .short("c")
@@ -75,8 +88,17 @@ pub fn get_args() -> Args {
         base_uri: args.value_of("base-uri").unwrap_or("").to_string(),
         captcha_string: args.value_of("captcha-string").unwrap_or("").to_string(),
         uri_file: args.value_of("uri-file").unwrap().to_string(),
-        user_agent: args.value_of("user-agent")
-            .unwrap_or("Googlebot (cache warmer)")
-            .to_string(),
+        user_agent: match args.value_of("user-agent") {
+            Some(user_agent) => user_agent.to_string(),
+            None => {
+                // Default user agents are adapted from: https://support.google.com/webmasters/answer/1061943
+                if args.is_present("mobile") {
+                    "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.96 Mobile Safari/537.36 (compatible; Googlebot/cache_warmer; +https://example.com)".to_string()
+                } else {
+                    "Mozilla/5.0 (compatible; Googlebot/cache_warmer; +https://example.com)"
+                        .to_string()
+                }
+            }
+        },
     }
 }
