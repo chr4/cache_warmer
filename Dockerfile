@@ -8,7 +8,8 @@ RUN apt-get update \
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain stable -y
 
-WORKDIR /app
 ENV PATH=/root/.cargo/bin:$PATH
+ENV CARGO_HOME=/app/.cargo
+WORKDIR /app
 
 CMD ["cargo", "build", "--release"]

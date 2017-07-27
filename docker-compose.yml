@@ -3,7 +3,5 @@ services:
   cache_warmer:
     build: ./
     image: chr4/rust
-    environment:
-      CARGO_HOME: /app/.cargo
     volumes:
       - ./:/app
