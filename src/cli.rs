@@ -63,19 +63,17 @@ pub fn get_args() -> Args {
                 .help("Use custom user-agent")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("mobile").long("mobile").help(
-            "Use mobile user agent",
-        ))
-        .arg(Arg::with_name("desktop").long("desktop").help(
-            "Use desktop user agent (default)",
-        ))
-        .group(ArgGroup::with_name("ua-group").args(
-            &[
-                "user-agent",
-                "mobile",
-                "desktop",
-            ],
-        ))
+        .arg(
+            Arg::with_name("mobile")
+                .long("mobile")
+                .help("Use mobile user agent"),
+        )
+        .arg(
+            Arg::with_name("desktop")
+                .long("desktop")
+                .help("Use desktop user agent (default)"),
+        )
+        .group(ArgGroup::with_name("ua-group").args(&["user-agent", "mobile", "desktop"]))
         .arg(
             Arg::with_name("captcha-string")
                 .long("captcha-string")
@@ -88,15 +86,12 @@ pub fn get_args() -> Args {
                 .long("no-progress-bar")
                 .help("Disable the progress bar"),
         )
-        .arg(Arg::with_name("quiet").long("quiet").help(
-            "Only output errors, no statistics (implies --no-progress-bar)",
-        ))
-        .group(ArgGroup::with_name("verbosity").args(
-            &[
-                "quiet",
-                "no-progress-bar",
-            ],
-        ))
+        .arg(
+            Arg::with_name("quiet")
+                .long("quiet")
+                .help("Only output errors, no statistics (implies --no-progress-bar)"),
+        )
+        .group(ArgGroup::with_name("verbosity").args(&["quiet", "no-progress-bar"]))
         .arg(
             Arg::with_name("cookie")
                 .short("c")

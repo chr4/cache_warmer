@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use futures::Future;
 use futures::stream::Stream;
 
-use hyper::{Uri, Client, Request, Method, StatusCode};
-use hyper::header::{UserAgent, Cookie};
+use hyper::{Client, Method, Request, StatusCode, Uri};
+use hyper::header::{Cookie, UserAgent};
 use hyper_tls::HttpsConnector;
 
 use tokio_core::reactor::Core;
@@ -45,7 +45,6 @@ pub struct Loader {
 
 // Make custom X-Cache-Status header known
 header! { (XCacheStatus, "X-Cache-Status") => [String] }
-
 
 impl Loader {
     pub fn new(args: Args) -> Result<Arc<Loader>, String> {
@@ -209,13 +208,11 @@ impl Loader {
         let uris = self.uris_done.lock().unwrap();
         let captcha_found: Vec<_> = uris.iter().filter(|res| res.captcha).collect();
 
-
         println!();
         if let Some(res) = captcha_found.first() {
             println!("Ran into Captcha at '{}', stopping...", res.uri);
         }
         println!("Processed {} URLs", uris.len());
-
 
         let mut cache_status = HashMap::new();
         for uri in uris.iter() {

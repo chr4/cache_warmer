@@ -4,18 +4,17 @@ extern crate hyper;
 #[macro_use]
 extern crate clap;
 
-extern crate hyper_tls;
 extern crate futures;
-extern crate tokio_core;
+extern crate hyper_tls;
 extern crate pbr;
+extern crate tokio_core;
 
 mod cli;
 mod loader;
 
-use std::{thread, process};
-use std::time::{SystemTime, Duration};
+use std::{process, thread};
+use std::time::{Duration, SystemTime};
 use pbr::ProgressBar;
-
 
 fn main() {
     let args = cli::get_args();
@@ -27,10 +26,10 @@ fn main() {
 
     if !main_args.quiet {
         println!(
-        "Spawning {} threads to warm cache with {} URIs",
-        main_args.threads,
-        loader.length(),
-    );
+            "Spawning {} threads to warm cache with {} URIs",
+            main_args.threads,
+            loader.length(),
+        );
     }
 
     // Create vector to store thread handles
@@ -68,7 +67,9 @@ fn main() {
     // Create threads and safe handles
     for _ in 0..main_args.threads {
         let loader = loader.clone();
-        let handle = thread::spawn(move || { loader.spawn(); });
+        let handle = thread::spawn(move || {
+            loader.spawn();
+        });
         thread_handles.push(handle);
     }
 
@@ -81,12 +82,10 @@ fn main() {
         loader.print_stats();
 
         match start_time.elapsed() {
-            Ok(duration) => {
-                println!(
-                    "\nTotal time taken: {:.3}s",
-                    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
-                )
-            }
+            Ok(duration) => println!(
+                "\nTotal time taken: {:.3}s",
+                duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+            ),
             Err(err) => println!("Error getting elapsed time: {}", err),
         }
     }
