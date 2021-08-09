@@ -9,6 +9,7 @@ pub struct Args {
     pub uri_file: String,
     pub user_agent: String,
     pub keep_alive: bool,
+    pub gzip: bool,
     pub quiet: bool,
     pub progress_bar: bool,
     pub captcha_string: String,
@@ -46,6 +47,12 @@ pub fn get_args() -> Args {
                 .short("n")
                 .long("no-keep-alive")
                 .help("Do not use keep-alive"),
+        )
+        .arg(
+            Arg::with_name("no-gzip")
+                .short("g")
+                .long("no-gzip")
+                .help("Do not set 'Accept-Encoding: br,gzip,deflate' header"),
         )
         .arg(
             Arg::with_name("delay")
@@ -131,6 +138,7 @@ pub fn get_args() -> Args {
             0
         },
         cookies: cookies,
+        gzip: !args.is_present("no-gzip"),
         keep_alive: !args.is_present("no-keep-alive"),
         quiet: args.is_present("quiet"),
         progress_bar: !args.is_present("no-progress-bar") && !args.is_present("quiet"),

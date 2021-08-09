@@ -9,7 +9,7 @@ use futures::Future;
 use futures::stream::Stream;
 
 use hyper::{Client, Method, Request, StatusCode, Uri};
-use hyper::header::{Cookie, UserAgent};
+use hyper::header::{Cookie, UserAgent, AcceptEncoding, Encoding, qitem};
 use hyper_tls::HttpsConnector;
 
 use tokio_core::reactor::Core;
@@ -40,6 +40,7 @@ pub struct Loader {
     cookie: Cookie,
     captcha_string: String,
     keep_alive: bool,
+    gzip: bool,
     delay: u64,
 }
 
@@ -95,6 +96,7 @@ impl Loader {
             user_agent: user_agent,
             cookie: cookie_jar,
             keep_alive: args.keep_alive,
+            gzip: args.gzip,
             delay: args.delay,
             captcha_string: args.captcha_string.to_string(),
         }))
@@ -158,6 +160,13 @@ impl Loader {
             let mut req: Request = Request::new(Method::Get, cache_resource.uri.clone());
             req.headers_mut().set(self.user_agent.clone());
             req.headers_mut().set(self.cookie.clone());
+            if self.gzip {
+                req.headers_mut().set(AcceptEncoding(vec![
+                    qitem(Encoding::Brotli),
+                    qitem(Encoding::Gzip),
+                    qitem(Encoding::Deflate),
+                ]));
+            }
 
             let task = client.request(req).and_then(|res| {
                 cache_resource.cache_status = match res.headers().get::<XCacheStatus>() {
